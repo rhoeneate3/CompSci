@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 #
 # Electrostatic PIC code in a 1D cyclic domain
-import numpy as np
+
 from numpy import arange, concatenate, zeros, linspace, floor, array, pi
 from numpy import sin, cos, sqrt, random, histogram, abs, sqrt, max
-from scipy.signal import find_peaks
+
 import matplotlib.pyplot as plt # Matplotlib plotting library
-import time
 
 try:
     import matplotlib.gridspec as gridspec  # For plot layout grid
@@ -267,16 +266,9 @@ def twostream(npart, L, vbeam=2):
     
     return pos,vel
 
-
-
-
-
 ####################################################################
 
 if __name__ == "__main__":
-    
-    start = time.perf_counter()
-    
     # Generate initial condition
     # 
     npart = 1000   
@@ -292,11 +284,10 @@ if __name__ == "__main__":
         pos, vel = landau(npart, L)
     
     # Create some output classes
-    #p = Plot(pos, vel, ncells, L) # This displays an animated figure - Slow!
+    p = Plot(pos, vel, ncells, L) # This displays an animated figure - Slow!
     s = Summary()                 # Calculates, stores and prints summary info
 
-    #diagnostics_to_run = [p, s]   # Remove p to get much faster code!
-    diagnostics_to_run = [s]   # Remove p to get much faster code!
+    diagnostics_to_run = [p, s]   # Remove p to get much faster code!
     
     # Run the simulation
     pos, vel = run(pos, vel, L, ncells, 
@@ -311,117 +302,7 @@ if __name__ == "__main__":
     plt.ylabel("First harmonic amplitude [Normalised]")
     plt.yscale('log')
     
-        
     plt.ioff() # This so that the windows stay open
     plt.show()
     
-    ####################################################################
-    #   PEAK FINDING, NOISE ANALYSIS, FREQUENCY + DAMPING EXTRACTION
-    ####################################################################
-
-    from scipy.signal import find_peaks
-    import numpy as np
-
-    # NumPy arrays make indexing and maths easier.
-    t = np.array(s.t)
-    A = np.array(s.firstharmonic)
-
-    # -----------------------------
-    # 1. Find peaks
-    # -----------------------------
-    peak_idx, _ = find_peaks(A) #The second output is metadata — ignored here (_).
-    t_peaks = t[peak_idx]
-    A_peaks = A[peak_idx]
-
-    # Plot to verify peaks
-    plt.figure()
-    plt.plot(t, A, label="First harmonic")
-    plt.plot(t_peaks, A_peaks, 'x', label="Detected peaks")
-    plt.yscale("log")
-    plt.xlabel("Time")
-    plt.ylabel("Amplitude")
-    plt.legend()
-    plt.title("Peaks on harmonic amplitude")
-
-    # -----------------------------
-    # 2. Identify where noise overtakes signal
-    #    (first peak that increases vs previous one)
-    # -----------------------------
-    noise_start_index = None
-    for i in range(1, len(A_peaks)):
-        if A_peaks[i] > A_peaks[i-1]:
-            noise_start_index = i
-            break
-
-    if noise_start_index is None:
-        print("Noise region never detected.")
-        noise_start_index = len(A_peaks)
-
-    # Signal peaks : All peaks before noise -> actual physics.
-    t_sig = t_peaks[:noise_start_index]
-    A_sig = A_peaks[:noise_start_index]
-
-    # Noise peaks : Everything after ->  numerical noise.
-    t_noise = t_peaks[noise_start_index:]
-    A_noise = A_peaks[noise_start_index:]
-
-    # -----------------------------
-    # 3. Estimate noise amplitude level
-    # -----------------------------
-    if len(A_noise) > 0:
-        noise_level = np.mean(A_noise)
-    else:
-        noise_level = None
-
-    print("\n--- NOISE ANALYSIS ---")
-    print("Noise starts at peak index:", noise_start_index)
-    print("Estimated noise amplitude:", noise_level)
-
-    # -----------------------------
-    # 4. Frequency estimate from peak spacing
-    # -----------------------------
-    if len(t_sig) >= 2:
-        periods = np.diff(t_sig)
-        period_mean = np.mean(periods)
-        period_err = np.std(periods)
-
-        omega_est = 2*np.pi/period_mean
-        omega_err = 2*np.pi*period_err/(period_mean**2)
-    else:
-        omega_est = omega_err = None
-
-    print("\n--- FREQUENCY MEASUREMENT ---")
-    print(f"Estimated ω = {omega_est:.3f} ± {omega_err:.3f}")
-
-    # -----------------------------
-    # 5. Damping rate estimate via exponential fit
-    #    A(t) = A0 * exp(-gamma t)
-    #    => log(A) = log(A0) - gamma t
-    # -----------------------------
-    if len(A_sig) >= 2:
-        logA = np.log(A_sig)
-        coeff = np.polyfit(t_sig, logA, 1)
-        gamma_est = -coeff[0]
-
-        # error: std of residuals / sqrt(N)
-        fit_residuals = logA - np.polyval(coeff, t_sig)
-        gamma_err = np.std(fit_residuals) / np.sqrt(len(A_sig))
-    else:
-        gamma_est = gamma_err = None
-
-    print("\n--- DAMPING RATE ---")
-    print(f"Estimated γ = {gamma_est:.3f} ± {gamma_err:.3f}")
-
-    # -----------------------------
-    # 6. Comparison with expected
-    # -----------------------------
-    print("\n--- COMPARISON ---")
-    print("Analytic:         ω = 1.416,  γ = 0.153")
-    print("Typical PIC:      ω = 1.33 ± 0.16, γ = 0.168 ± 0.002")
-    print()
-
-
-    
-    end = time.perf_counter()
-    print(f"simulation runtime: {end - start : .3f} seconds")
     
