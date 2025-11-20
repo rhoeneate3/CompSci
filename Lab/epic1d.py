@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 #
 # Electrostatic PIC code in a 1D cyclic domain
-
+import numpy as np
 from numpy import arange, concatenate, zeros, linspace, floor, array, pi
 from numpy import sin, cos, sqrt, random, histogram, abs, sqrt, max
-
 import matplotlib.pyplot as plt # Matplotlib plotting library
+import time
 
 try:
     import matplotlib.gridspec as gridspec  # For plot layout grid
@@ -269,6 +269,9 @@ def twostream(npart, L, vbeam=2):
 ####################################################################
 
 if __name__ == "__main__":
+    
+    start = time.perf_counter()
+    
     # Generate initial condition
     # 
     npart = 1000   
@@ -284,10 +287,11 @@ if __name__ == "__main__":
         pos, vel = landau(npart, L)
     
     # Create some output classes
-    p = Plot(pos, vel, ncells, L) # This displays an animated figure - Slow!
+    #p = Plot(pos, vel, ncells, L) # This displays an animated figure - Slow!
     s = Summary()                 # Calculates, stores and prints summary info
 
-    diagnostics_to_run = [p, s]   # Remove p to get much faster code!
+    #diagnostics_to_run = [p, s]   # Remove p to get much faster code!
+    diagnostics_to_run = [s]   # Remove p to get much faster code!
     
     # Run the simulation
     pos, vel = run(pos, vel, L, ncells, 
@@ -302,7 +306,17 @@ if __name__ == "__main__":
     plt.ylabel("First harmonic amplitude [Normalised]")
     plt.yscale('log')
     
-    plt.ioff() # This so that the windows stay open
-    plt.show()
+    # saving harmom=nic amplitude and time data
+    # Stack columns: time | first harmonic
+    harmonic_data = np.column_stack((s.t, s.firstharmonic))
+
+    path = r"C:\Users\bpx519\OneDrive - University of York\Desktop\CompSci\Lab\harmonic_data.txt"
+    np.savetxt(path, harmonic_data, header="time  first_harmonic", fmt="%.8e")
+
     
+    #plt.ioff() # This so that the windows stay open
+    #plt.show()
+    
+    end = time.perf_counter()
+    print(f"simulation runtime: {end - start : .3f} seconds")
     
