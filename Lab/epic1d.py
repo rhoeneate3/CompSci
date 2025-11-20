@@ -4,6 +4,7 @@
 import numpy as np
 from numpy import arange, concatenate, zeros, linspace, floor, array, pi
 from numpy import sin, cos, sqrt, random, histogram, abs, sqrt, max
+from scipy.signal import find_peaks
 import matplotlib.pyplot as plt # Matplotlib plotting library
 import time
 
