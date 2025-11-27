@@ -1,0 +1,4 @@
+﻿Run 2
+Noise level: 0.04406741032752409
+Omega: nan ± nan
+Gamma: nan ± nan

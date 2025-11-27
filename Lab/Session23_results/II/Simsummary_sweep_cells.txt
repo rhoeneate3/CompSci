@@ -1,0 +1,89 @@
+# PIC Simulation Summary (sweep over cells)
+# Values swept: [10, 20, 30, 40, 50]
+# Runs per configuration: 5
+
+# config: cells=10
+# Ncells=10  Nparticles=1000
+run_id  runtime   noise   freq   freq_err   damping   damping_err
+1      0.57622    0.026532 2.7166  0.22599    0.24452    0.037657  
+2      0.53765    0.026908 2.6772  0.20161    0.14214    0.094851  
+3      0.49495    0.062588 nan     nan        nan        nan       
+4      0.48389    0.043484 3.0788  4.7373e-16 0.27687    0.064211  
+5      0.48817    0.044642 3.0788  0          0.26028    0         
+
+# mean values:
+# runtime_mean=0.516176, runtime_std=0.0398231
+# noise_mean=0.0408307, noise_std=0.0149434
+# freq_mean=2.88781, freq_std=0.221071
+# damping_mean=0.230954, damping_std=0.0606634
+
+----------------------------------------------------------------------
+
+# config: cells=20
+# Ncells=20  Nparticles=1000
+run_id  runtime   noise   freq   freq_err   damping   damping_err
+1      0.84517    0.06537 2.7989  0.25444    0.26846    0.034174  
+2      0.84202    0.0059104 2.4053  0.50979    0.23602    0.19007   
+3      0.83331    0.045957 3.0788  0          0.30413    1.5701e-16
+4      0.81642    0.035853 2.8863  0.25512    0.23253    0.046487  
+5      0.93345    0.049079 3.0788  1.2232e-15 0.39007    0.10918   
+
+# mean values:
+# runtime_mean=0.854074, runtime_std=0.045755
+# noise_mean=0.0404339, noise_std=0.0220222
+# freq_mean=2.8496, freq_std=0.276754
+# damping_mean=0.286244, damping_std=0.0648519
+
+----------------------------------------------------------------------
+
+# config: cells=30
+# Ncells=30  Nparticles=1000
+run_id  runtime   noise   freq   freq_err   damping   damping_err
+1      1.2464     0.054309 2.9322  0.24184    0.13951    0.039819  
+2      1.1753     0.034666 2.0525  0.73687    0.1601     0.0961    
+3      1.0557     0.05085 2.5656  0          0.19617    0         
+4      2.0168     0.047899 2.3091  0.5887     0.13485    0.044087  
+5      1.8694     0.040296 3.4208  0.38009    0.24621    0.076754  
+
+# mean values:
+# runtime_mean=1.47272, runtime_std=0.437874
+# noise_mean=0.0456041, noise_std=0.00800584
+# freq_mean=2.65604, freq_std=0.537117
+# damping_mean=0.175368, damping_std=0.0464008
+
+----------------------------------------------------------------------
+
+# config: cells=40
+# Ncells=40  Nparticles=1000
+run_id  runtime   noise   freq   freq_err   damping   damping_err
+1      2.2065     0.055895 2.7166  0.86053    0.15178    0.068417  
+2      2.1399     0.026887 2.0992  0.75131    0.1111     0.051155  
+3      2.2524     0.04583 3.0788  0          0.12919    0         
+4      2.1692     0.04498 2.7989  0.25444    0.18581    0.01258   
+5      2.271      0.022921 2.463   0.42944    0.15542    0.044016  
+
+# mean values:
+# runtime_mean=2.20781, runtime_std=0.0549659
+# noise_mean=0.0393026, noise_std=0.0138983
+# freq_mean=2.63127, freq_std=0.369821
+# damping_mean=0.146661, damping_std=0.0283086
+
+----------------------------------------------------------------------
+
+# config: cells=50
+# Ncells=50  Nparticles=1000
+run_id  runtime   noise   freq   freq_err   damping   damping_err
+1      2.7645     0.038911 2.1991  0.44429    0.13537    0.049311  
+2      2.5025     0.043428 2.7989  0.25444    0.13598    0.054305  
+3      2.5323     0.054178 nan     nan        nan        nan       
+4      2.5791     0.048619 3.0788  6.6995e-16 0.11977    0.061918  
+5      2.7013     0.04812 2.7989  0.25444    0.12383    0.014389  
+
+# mean values:
+# runtime_mean=2.61593, runtime_std=0.11244
+# noise_mean=0.0466514, noise_std=0.00576606
+# freq_mean=2.71891, freq_std=0.370795
+# damping_mean=0.128738, damping_std=0.00818044
+
+----------------------------------------------------------------------
+

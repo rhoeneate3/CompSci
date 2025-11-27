@@ -269,6 +269,9 @@ def twostream(npart, L, vbeam=2):
     
     return pos,vel
 
+def slice_into_chunks(lst, chunk_size):                     #helper function
+    """Turn [a,b,c,a,b,c,...] into [[a,b,c],[a,b,c],...]"""
+    return [lst[i:i+chunk_size] for i in range(0, len(lst), chunk_size)]
 
 
 
@@ -276,205 +279,309 @@ def twostream(npart, L, vbeam=2):
 ####################################################################
 
 if __name__ == "__main__":
-    
-    # --- user input for number of runs --- #
 
+    # -------------------------------------------------------------
+    # USER INPUT
+    # -------------------------------------------------------------
     N_runs = int(input("How many runs of the PIC simulation? "))
-    
-    # ensure directory exists
+    mode = input("Sweep over 'cells', 'particles', or 'box_length'? here, box_length will be (input)*np.pi ").strip().lower()
+
+    if mode not in ("cells", "particles", "box_length"):
+        raise ValueError("You must choose either 'cells', 'particles', or 'box_length'.")
+
+    values = [int(v) for v in input(
+        f"Enter values of {mode} separated by commas: "
+    ).split(",")]
+
+    # directory setup
     result_dir = r"C:\Users\bpx519\OneDrive - University of York\Desktop\CompSci\Lab\Session23_results"
     os.makedirs(result_dir, exist_ok=True)
-    
-    # Arrays for stats across runs
+
+    # -------------------------------------------------------------
+    # STORAGE (one big list per metric)
+    # -------------------------------------------------------------
     noise_list = []
     omega_list = []
     omega_err_list = []
     gamma_list = []
     gamma_err_list = []
-    
-    
-    for run_idx in range(1, N_runs+1):
-        print(f"\n==============================")
-        print(f"        RUN {run_idx}/{N_runs}")
-        print(f"==============================")
-            
-        start = time.perf_counter()
-        
-        # ----- Generate initial condition -----
-        
-        npart = 1000   
-        if False:
-            # 2-stream instability
-            L = 100
-            ncells = 20
-            pos, vel = twostream(npart, L, 3.) # Might require more npart than Landau!
-        else:
-            # Landau damping
-            L = 4.*pi
-            ncells = 20
+    sim_time_list = []
+
+    # -------------------------------------------------------------
+    # MAIN SWEEP LOOP
+    # -------------------------------------------------------------
+    for v in values:
+        print(f"\n##### Sweeping {mode} = {v} #####")
+
+        for run_idx in range(1, N_runs + 1):
+
+            # ----------------------------------------------
+            # set swept variable only here
+            # ----------------------------------------------
+            if mode == "cells":
+                ncells = v
+                npart = 1000
+                L = 4 * np.pi
+            elif mode == "particles":
+                npart = v
+                ncells = 20
+                L = 4 * np.pi
+            else:
+                L = v * np.pi
+                ncells = 40
+                npart = 2000
+            # ----------------------------------------------
+            # Initial condition
+            # ----------------------------------------------
             pos, vel = landau(npart, L)
-        
-        # ----- Output Class -----
-        
-        #p = Plot(pos, vel, ncells, L) # This displays an animated figure - Slow!
-        s = Summary()                 # Calculates, stores and prints summary info
 
-        #diagnostics_to_run = [p, s]   # Remove p to get much faster code!
-        diagnostics_to_run = [s]   # Remove p to get much faster code!
-        
-        # ----- Run the simulation -----
-        pos, vel = run(pos, vel, L, ncells, 
-                    out = diagnostics_to_run,        # These are called each output step
-                    output_times=linspace(0.,20,50)) # The times to output
-        
+            s = Summary()
+            diagnostics_to_run = [s]
 
+            # ----------------------------------------------
+            # TIME THE SIMULATION
+            # ----------------------------------------------
+            start = time.perf_counter()
+            pos, vel = run(
+                pos, vel, L, ncells,
+                out=diagnostics_to_run,
+                output_times=np.linspace(0., 20., 50)
+            )
+            sim_time = time.perf_counter() - start
 
-        # Summary stores an array of the first-harmonic amplitude
-        # Make a semilog plot to see exponential damping
+            # ----------------------------------------------
+            # ANALYSIS BLOCK (unchanged from your code)
+            # ----------------------------------------------
+            t = np.array(s.t)
+            A = np.array(s.firstharmonic)
 
+            peak_idx, _ = find_peaks(A)
+            t_peaks = t[peak_idx]
+            A_peaks = A[peak_idx]
+
+            # detect noise region
+            noise_start = None
+            for i in range(1, len(A_peaks)):
+                if A_peaks[i] > A_peaks[i-1]:
+                    noise_start = i
+                    break
+            if noise_start is None:
+                noise_start = len(A_peaks)
+
+            t_sig = t_peaks[:noise_start]
+            A_sig = A_peaks[:noise_start]
+            A_noise = A_peaks[noise_start:]
+
+            noise_level = np.mean(A_noise) if len(A_noise) else np.nan
+
+            # frequency
+            if len(t_sig) >= 2:
+                dT = np.diff(t_sig)
+                meanT = np.mean(dT)
+                stdT  = np.std(dT)
+                omega = 2 * np.pi / meanT
+                omega_err = 2 * np.pi * stdT / (meanT**2)
+            else:
+                omega = omega_err = np.nan
+
+            # damping
+            if len(A_sig) >= 2:
+                logA = np.log(A_sig)
+                coeff = np.polyfit(t_sig, logA, 1)
+                gamma = -coeff[0]
+                residuals = logA - np.polyval(coeff, t_sig)
+                gamma_err = np.std(residuals) / np.sqrt(len(A_sig))
+            else:
+                gamma = gamma_err = np.nan
+
+            # ----------------------------------------------
+            # STORE RESULTS FOR LATER PLOTTING
+            # ----------------------------------------------
+            noise_list.append(noise_level)
+            omega_list.append(omega)
+            omega_err_list.append(omega_err)
+            gamma_list.append(gamma)
+            gamma_err_list.append(gamma_err)
+            sim_time_list.append(sim_time)
+
+        # end run loop
+
+    # end sweep loop
+
+    # -------------------------------------------------------------
+    # GROUP DATA INTO CHUNKS (one chunk per swept value)
+    # -------------------------------------------------------------
+    def chunk(lst):
+        return [lst[i:i+N_runs] for i in range(0, len(lst), N_runs)]
+
+    noise_chunks = chunk(noise_list)
+    omega_chunks = chunk(omega_list)
+    omega_err_chunks = chunk(omega_err_list)
+    gamma_chunks = chunk(gamma_list)
+    gamma_err_chunks = chunk(gamma_err_list)
+    time_chunks  = chunk(sim_time_list)
+
+    # -------------------------------------------------------------
+    # COMPUTE MEANS + STD (Error bars)
+    # -------------------------------------------------------------
+    noise_means = [np.nanmean(c) for c in noise_chunks]
+    noise_stds  = [np.nanstd(c, ddof=1) for c in noise_chunks]
+
+    omega_means = [np.nanmean(c) for c in omega_chunks]
+    omega_stds  = [np.nanstd(c, ddof=1) for c in omega_chunks]
+
+    gamma_means = [np.nanmean(c) for c in gamma_chunks]
+    gamma_stds  = [np.nanstd(c, ddof=1) for c in gamma_chunks]
+
+    time_means = [np.nanmean(c) for c in time_chunks]
+    time_stds  = [np.nanstd(c, ddof=1) for c in time_chunks]
+
+    # -------------------------------------------------------------
+    # PLOTTING
+    # -------------------------------------------------------------
+    xlabel = "Number of Cells" if mode == "cells" else "Number of Particles"
+
+    def plot_with_error(y, yerr, ylabel, fname):
         plt.figure()
-        plt.plot(s.t, s.firstharmonic)
-        plt.xlabel("Time [Normalised]")
-        plt.ylabel("First harmonic amplitude [Normalised]")
-        plt.yscale('log')
+        plt.errorbar(values, y, yerr=yerr, fmt="o-", capsize=4)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(f"{ylabel} vs {xlabel}")
+        plt.grid(True)
+        plt.savefig(os.path.join(result_dir, fname), dpi=300)
+        plt.close()
 
-        # Title includes the run ID
-        plt.title(f"First Harmonic Damping (Run {run_idx})")
+    plot_with_error(time_means,  time_stds,  "Simulation Time [s]", f"time_vs_{mode}.png")
+    plot_with_error(noise_means, noise_stds, "Noise Level",         f"noise_vs_{mode}.png")
+    plot_with_error(omega_means, omega_stds, "Frequency ω",         f"omega_vs_{mode}.png")
+    plot_with_error(gamma_means, gamma_stds, "Damping γ",           f"gamma_vs_{mode}.png")
 
-        # Ensure the output directory exists
-        os.makedirs(result_dir, exist_ok=True)
+    print("\nAll plots saved.")
+        # -------------------------------------------------------------
+    # SUMMARY TEXT FILE (FULL RUN-BY-RUN DATA + ERRORS)
+    # -------------------------------------------------------------
+    summary_path = os.path.join(result_dir, f"Simsummary_sweep_{mode}.txt")
 
-        # Save with run ID appended
-        outfile = os.path.join(result_dir, f"first_harmonic_run_{run_idx}.png")
-        plt.savefig(outfile, dpi=300, bbox_inches='tight')
+    with open(summary_path, "w") as f:
+        f.write(f"# PIC Simulation Summary (sweep over {mode})\n")
+        f.write(f"# Values swept: {values}\n")
+        f.write(f"# Runs per configuration: {N_runs}\n\n")
 
-        plt.close()   # closes the figure so you don’t leak memory on repeated runs
+        for idx, v in enumerate(values):
+            # pull chunks for this config
+            noise_c = noise_chunks[idx]
+            omega_c = omega_chunks[idx]
+            omega_err_c = omega_err_chunks[idx]
+            gamma_c = gamma_chunks[idx]
+            gamma_err_c = gamma_err_chunks[idx]
+            time_c  = time_chunks[idx]
 
+            # header for this block
+            f.write(f"# config: {mode}={v}\n")
+            if mode == "cells":
+                f.write(f"# Ncells={v}  Nparticles=1000\n")
+            else:
+                f.write(f"# Ncells=20   Nparticles={v}\n")
 
+            f.write("run_id  runtime   noise   freq   freq_err   damping   damping_err\n")
 
-        # Convert Summary Arrays
-        t = np.array(s.t)
-        A = np.array(s.firstharmonic) 
-        
-        # ----- ANALYSIS BLOCK -----
+            # individual runs
+            for run_id in range(N_runs):
+                f.write(
+                    f"{run_id+1:<7d}"
+                    f"{time_c[run_id]:<10.5g} "
+                    f"{noise_c[run_id]:<7.5g} "
+                    f"{omega_c[run_id]:<7.5g} "
+                    f"{omega_err_c[run_id]:<10.5g} "
+                    f"{gamma_c[run_id]:<10.5g} "
+                    f"{gamma_err_c[run_id]:<10.5g}\n"
+                )
 
-        # Find peaks
-        peak_idx, _ = find_peaks(A) #The second output is metadata — ignored here (_).
-        t_peaks = t[peak_idx]
-        A_peaks = A[peak_idx]
-
-
-        # Noise Detection
-        noise_start_index = None
-        for i in range(1, len(A_peaks)):
-            if A_peaks[i] > A_peaks[i-1]:
-                noise_start_index = i
-                break
-
-        if noise_start_index is None:
-            print("Noise region never detected.")
-            noise_start_index = len(A_peaks)
-
-        # 'Split data into signal peaks + noise peaks'
-        t_sig = t_peaks[:noise_start_index]          # Signal peaks : All peaks before noise -> actual physics.
-        A_sig = A_peaks[:noise_start_index]
-
-        t_noise = t_peaks[noise_start_index:]        # Noise peaks : Everything after ->  numerical noise.
-        A_noise = A_peaks[noise_start_index:]
-
-        # Noise lvl
-        if len(A_noise) > 0:
-            noise_level = np.mean(A_noise)   # 'compute noise metric'
-        else:
-            noise_level = np.nan
-
-        # Frequency
-        if len(t_sig) >= 2:
-            periods = np.diff(t_sig)
-            period_mean = np.mean(periods)
-            period_err = np.std(periods)
-
-            omega_est = 2*np.pi/period_mean
-            omega_err = 2*np.pi*period_err/(period_mean**2)
-        else:
-            omega_est = omega_err = np.nan
-
-        # Damping
-        if len(A_sig) >= 2:
-            logA = np.log(A_sig)
-            coeff = np.polyfit(t_sig, logA, 1)
-            gamma_est = -coeff[0]
-
-            # error: std of residuals / sqrt(N)
-            fit_residuals = logA - np.polyval(coeff, t_sig)
-            gamma_err = np.std(fit_residuals) / np.sqrt(len(A_sig))
-        else:
-            gamma_est = gamma_err = np.nan
-
-        # ---------- STORE RESULTS ----------
-        noise_list.append(noise_level if noise_level is not None else np.nan)
-        omega_list.append(omega_est if not np.isnan(omega_est) else np.nan)
-        omega_err_list.append(omega_err if not np.isnan(omega_err) else np.nan)
-        gamma_list.append(gamma_est if not np.isnan(gamma_est) else np.nan)
-        gamma_err_list.append(gamma_err if not np.isnan(gamma_err) else np.nan)
-
-        
-        # ---------- SAVE RUN RESULTS ----------
-
-        outpath = os.path.join(result_dir, f"run_{run_idx}.txt")
-
-        with open(outpath, "w", encoding="utf-8-sig") as f:
-            f.write(f"Run {run_idx}\n")
-            f.write(f"Noise level: {noise_level}\n")
-            f.write(f"Omega: {omega_est} ± {omega_err}\n")
-            f.write(f"Gamma: {gamma_est} ± {gamma_err}\n")
-
-        print(f"Saved: {outpath}")
-
-        end = time.perf_counter()
-        print(f"simulation runtime: {end - start : .3f} seconds")
-        
-    # ----- Final Stats -----
-    
-    def mean_std(x):
-        return np.nanmean(x), np.nanstd(x, ddof=1)              #ignores NaNs
-
-    noise_mean, noise_std = mean_std(noise_list)
-    omega_mean, omega_std = mean_std(omega_list)
-    gamma_mean, gamma_std = mean_std(gamma_list)
-
-    print("\n\n==============================")
-    print("      Final Stats")
-    print("==============================")
-    print(f"Noise   : mean={noise_mean:.4g}, std={noise_std:.4g}")
-    print(f"Omega   : mean={omega_mean:.4g}, std={omega_std:.4g}")
-    print(f"Gamma   : mean={gamma_mean:.4g}, std={gamma_std:.4g}")
-
-    print("\n--- ERROR COMPARISON ---")
-    print(f"Individual ω error : {np.mean(omega_err_list):.4g}")
-    print(f"Run-to-run ω spread: {omega_std:.4g}")
-
-    print(f"Individual γ error : {np.mean(gamma_err_list):.4g}")
-    print(f"Run-to-run γ spread: {gamma_std:.4g}")
-
-    print("\nLarger value = dominant source of uncertainty.")
-    
-    # saving final stats to txt file
-    summary_path = r"C:\Users\bpx519\OneDrive - University of York\Desktop\CompSci\Lab\Session23_results\Simsummary.txt"
-    with open(summary_path, "w", encoding = "utf-8-sig") as f:
-        f.write("==============================\n")
-        f.write("      Final Stats\n")
-        f.write("==============================\n")
-        f.write(f"Noise   : mean={noise_mean:.4g}, std={noise_std:.4g}\n")
-        f.write(f"Omega   : mean={omega_mean:.4g}, std={omega_std:.4g}\n")
-        f.write(f"Gamma   : mean={gamma_mean:.4g}, std={gamma_std:.4g}\n")
-        f.write("\n--- ERROR COMPARISON ---\n")
-        f.write(f"Individual ω error : {np.mean(omega_err_list):.4g}\n")
-        f.write(f"Run-to-run ω spread: {omega_std:.4g}\n")
-        f.write(f"Individual γ error : {np.mean(gamma_err_list):.4g}\n")
-        f.write(f"Run-to-run γ spread: {gamma_std:.4g}\n")
-        f.write("\nLarger value = dominant source of uncertainty.\n")
+            # summary statistics
+            f.write("\n# mean values:\n")
+            f.write(
+                f"# runtime_mean={time_means[idx]:.6g}, runtime_std={time_stds[idx]:.6g}\n"
+            )
+            f.write(
+                f"# noise_mean={noise_means[idx]:.6g}, noise_std={noise_stds[idx]:.6g}\n"
+            )
+            f.write(
+                f"# freq_mean={omega_means[idx]:.6g}, freq_std={omega_stds[idx]:.6g}\n"
+            )
+            f.write(
+                f"# damping_mean={gamma_means[idx]:.6g}, damping_std={gamma_stds[idx]:.6g}\n"
+            )
+            f.write("\n" + "-"*70 + "\n\n")
 
     print(f"\nSummary saved to: {summary_path}")
+    
+    
+    # ---------------------------
+# FIT: noise ~ A * x^p (expect p = -0.5 for 1/sqrt(Np_per_cell))
+# ---------------------------
+import numpy as _np
+from scipy.optimize import curve_fit
 
-        
+# determine effective x variable = particles per cell for each swept 'values'
+# Use the same defaults you used in the sweep:
+DEFAULT_NPART_FOR_CELL_SWEEP = 1000
+DEFAULT_NCELLS_FOR_PARTICLE_SWEEP = 20
+
+if mode == "cells":
+    Ncells_arr = _np.array(values, dtype=float)
+    Npart_arr = _np.full_like(Ncells_arr, DEFAULT_NPART_FOR_CELL_SWEEP, dtype=float)
+elif mode == "particles":
+    Npart_arr = _np.array(values, dtype=float)
+    Ncells_arr = _np.full_like(Npart_arr, DEFAULT_NCELLS_FOR_PARTICLE_SWEEP, dtype=float)
+else:
+    # for box_length sweeps we'll just fit noise vs particles-per-cell using defaults
+    Ncells_arr = _np.full(len(values), 40.0)    # whatever default you used when sweeping box_length
+    Npart_arr  = _np.full(len(values), 2000.0)
+
+# effective independent variable: particles per cell
+x = Npart_arr / Ncells_arr    # N_particles per cell
+y = _np.array(noise_means, dtype=float)
+yerr = _np.array(noise_stds, dtype=float)
+
+# mask invalid / nan entries
+mask = _np.isfinite(x) & _np.isfinite(y)
+x = x[mask]; y = y[mask]; yerr = yerr[mask]
+
+# avoid zero yerr (replace zeros with a small floor)
+yerr = _np.where(yerr <= 0, y.max()*1e-1 + 1e-12, yerr)
+
+def power_model(x, A, p):
+    return A * x**p
+
+fit_ok = False
+if len(x) >= 2:
+    try:
+        # initial guess: A ~ y * sqrt(x) (if p ~ -0.5)
+        p0 = [-0.5]   # starting guess for exponent
+        A0 = _np.nanmean(y * _np.sqrt(x))
+        popt, pcov = curve_fit(power_model, x, y, p0=[A0, -0.5], sigma=yerr, absolute_sigma=True, maxfev=10000)
+        A_best, p_best = popt
+        perr = _np.sqrt(_np.diag(pcov))
+        A_err, p_err = perr
+        fit_ok = True
+    except Exception as e:
+        print("Fit failed:", e)
+        A_best = _np.nan; p_best = _np.nan; A_err = _np.nan; p_err = _np.nan
+else:
+    A_best = _np.nan; p_best = _np.nan; A_err = _np.nan; p_err = _np.nan
+
+print(f"\nFit (noise ≈ A * (Npart/Ncell)^p): A = {A_best:.4g} ± {A_err:.4g}, p = {p_best:.4g} ± {p_err:.4g}")
+
+# Save a diagnostic plot
+xx = _np.logspace(_np.log10(x.min()*0.9), _np.log10(x.max()*1.1), 200)
+plt.figure()
+plt.errorbar(x, y, yerr=yerr, fmt='o', capsize=4, label='data')
+if fit_ok:
+    plt.plot(xx, power_model(xx, A_best, p_best), '-', label=f'fit: A={A_best:.3g}, p={p_best:.3g}')
+plt.xscale('log'); plt.yscale('log')
+plt.xlabel('Particles per cell (Npart / Ncells)')
+plt.ylabel('Noise level')
+plt.title('Noise vs particles-per-cell (log-log)')
+plt.legend(); plt.grid(True, which='both')
+plt.savefig(os.path.join(result_dir, f"noise_fit_{mode}_particlespercell.png"), dpi=300)
+plt.close()
