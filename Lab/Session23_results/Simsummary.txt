@@ -1,0 +1,14 @@
+﻿==============================
+      Final Stats
+==============================
+Noise   : mean=0.03693, std=0.01041
+Omega   : mean=2.403, std=0.5554
+Gamma   : mean=0.1887, std=0.04362
+
+--- ERROR COMPARISON ---
+Individual ω error : 0.1642
+Run-to-run ω spread: 0.5554
+Individual γ error : 0.04336
+Run-to-run γ spread: 0.04362
+
+Larger value = dominant source of uncertainty.

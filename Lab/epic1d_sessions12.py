@@ -322,31 +322,36 @@ if __name__ == "__main__":
     from scipy.signal import find_peaks
     import numpy as np
 
-    # NumPy arrays make indexing and maths easier.
+    # NumPy arrays make indexing and maths easier.   '1. Load/reference harmonic data'
     t = np.array(s.t)
-    A = np.array(s.firstharmonic)
+    A = np.array(s.firstharmonic) 
 
     # -----------------------------
     # 1. Find peaks
     # -----------------------------
+    # '2. detect peaks'
     peak_idx, _ = find_peaks(A) #The second output is metadata — ignored here (_).
     t_peaks = t[peak_idx]
     A_peaks = A[peak_idx]
 
     # Plot to verify peaks
     plt.figure()
-    plt.plot(t, A, label="First harmonic")
-    plt.plot(t_peaks, A_peaks, 'x', label="Detected peaks")
+    plt.plot(t, A, label="First harmonic")                                # 'plot signal + peaks overlay'
+    plt.plot(t_peaks, A_peaks, 'x', label="Detected peaks")               # 'plot signal + peaks overlay'
     plt.yscale("log")
     plt.xlabel("Time")
     plt.ylabel("Amplitude")
     plt.legend()
     plt.title("Peaks on harmonic amplitude")
+    plt.savefig(r'C:\Users\bpx519\OneDrive - University of York\Desktop\CompSci\Lab\NoiseAssessment')
+    plt.show()
 
     # -----------------------------
     # 2. Identify where noise overtakes signal
     #    (first peak that increases vs previous one)
     # -----------------------------
+    
+    # 'Loop through peaks to find where noise dominates'
     noise_start_index = None
     for i in range(1, len(A_peaks)):
         if A_peaks[i] > A_peaks[i-1]:
@@ -357,6 +362,7 @@ if __name__ == "__main__":
         print("Noise region never detected.")
         noise_start_index = len(A_peaks)
 
+# 'Split data into signal peaks + noise peaks'
     # Signal peaks : All peaks before noise -> actual physics.
     t_sig = t_peaks[:noise_start_index]
     A_sig = A_peaks[:noise_start_index]
@@ -369,7 +375,7 @@ if __name__ == "__main__":
     # 3. Estimate noise amplitude level
     # -----------------------------
     if len(A_noise) > 0:
-        noise_level = np.mean(A_noise)
+        noise_level = np.mean(A_noise)   # 'compute noise metric'
     else:
         noise_level = None
 
