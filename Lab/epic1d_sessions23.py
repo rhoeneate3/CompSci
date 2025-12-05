@@ -585,3 +585,4 @@ plt.title('Noise vs particles-per-cell (log-log)')
 plt.legend(); plt.grid(True, which='both')
 plt.savefig(os.path.join(result_dir, f"noise_fit_{mode}_particlespercell.png"), dpi=300)
 plt.close()
+
