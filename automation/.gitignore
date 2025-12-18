@@ -1,0 +1,9 @@
+# Python
+_pycache_/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Generated outputs
+*.png
