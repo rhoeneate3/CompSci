@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/miller/__init__.py
+src/miller.egg-info/PKG-INFO
+src/miller.egg-info/SOURCES.txt
+src/miller.egg-info/dependency_links.txt
+src/miller.egg-info/entry_points.txt
+src/miller.egg-info/requires.txt
+src/miller.egg-info/top_level.txt
